@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生物自適應線上練習系統</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 15px; line-height: 1.6; }
+    .card { border: 1px solid #ccc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .option-btn { display: block; width: 100%; margin: 8px 0; padding: 10px; text-align: left; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+    .option-btn:hover { background: #e0e0e0; }
+    .explanation { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-top: 10px; }
+    .badge { background: #17a2b8; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em; }
+    .hidden { display: none; }
+    .btn-submit { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <!-- 步驟 1: 輸入姓名 -->
+  <div id="login-card" class="card">
+    <h2>歡迎使用生物線上練習系統</h2>
+    <p>請輸入您的姓名開始練習：</p>
+    <input type="text" id="student-name" placeholder="例如：張小明" style="width: 80%; padding: 8px;">
+    <button class="btn-submit" onclick="startPractice()">開始練習</button>
+  </div>
+
+  <!-- 步驟 2: 答題區域 -->
+  <div id="quiz-card" class="card hidden">
+    <div>
+      <span id="concept-tag" class="badge">概念</span>
+      <span id="difficulty-tag" class="badge" style="background:#6c757d;">難度</span>
+    </div>
+    <h3 id="question-text">題目載入中...</h3>
+    <div id="options-container"></div>
+    
+    <div id="result-box" class="hidden">
+      <p id="result-status"></p>
+      <div id="explanation-text" class="explanation"></div>
+      <button class="btn-submit" style="margin-top:10px;" onclick="nextQuestion()">下一題</button>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ 請將下方網址替換為你在 Apps Script 部署獲得的網頁應用程式 URL
+    const API_URL = "YOUR_GAS_WEB_APP_URL_HERE"; 
+
+    let studentName = "";
+    let questionQueue = [];
+    let currentQ = null;
+
+    // 啟動與載入題目
+    async function startPractice() {
+      studentName = document.getElementById("student-name").value.trim();
+      if (!studentName) { alert("請輸入姓名！"); return; }
+
+      document.getElementById("login-card").classList.add("hidden");
+      document.getElementById("quiz-card").classList.remove("hidden");
+
+      // 向 Google Apps Script 抓取題目
+      let res = await fetch(API_URL);
+      questionQueue = await res.json();
+      
+      showNextQuestion();
+    }
+
+    // 顯示下一題
+    function showNextQuestion() {
+      if (questionQueue.length === 0) {
+        document.getElementById("quiz-card").innerHTML = "<h2>🎉 恭喜完成所有練習！</h2>";
+        return;
+      }
+
+      currentQ = questionQueue.shift();
+      document.getElementById("result-box").classList.add("hidden");
+      document.getElementById("concept-tag").innerText = "概念：" + currentQ.concept;
+      document.getElementById("difficulty-tag").innerText = "難度：" + currentQ.difficulty;
+      document.getElementById("question-text").innerText = currentQ.question;
+
+      let optsContainer = document.getElementById("options-container");
+      optsContainer.innerHTML = "";
+
+      for (let key in currentQ.options) {
+        let btn = document.createElement("button");
+        btn.className = "option-btn";
+        btn.innerText = key + ". " + currentQ.options[key];
+        btn.onclick = () => submitAnswer(key);
+        optsContainer.appendChild(btn);
+      }
+    }
+
+    // 學生點擊選項後提交
+    async function submitAnswer(selectedOpt) {
+      // 禁用所有按鈕防止重複點擊
+      let btns = document.querySelectorAll(".option-btn");
+      btns.forEach(b => b.disabled = true);
+
+      let isCorrect = (selectedOpt === currentQ.answer);
+      
+      // 顯示答題結果與解析
+      let statusText = isCorrect ? "✅ 答對了！" : `❌ 答錯了！正確答案是 (${currentQ.answer})`;
+      document.getElementById("result-status").innerText = statusText;
+      document.getElementById("result-status").style.color = isCorrect ? "green" : "red";
+      document.getElementById("explanation-text").innerText = "解析：" + currentQ.explanation;
+      document.getElementById("result-box").classList.remove("hidden");
+
+      // 發送結果至後端
+      let response = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          student_name: studentName,
+          question_id: currentQ.id,
+          concept: currentQ.concept,
+          user_answer: selectedOpt,
+          is_correct: isCorrect
+        })
+      });
+
+      let resData = await response.json();
+
+      // 如果答錯，且系統有推薦同概念題，自動插入到佇列前面（進行強化補題）
+      if (!isCorrect && resData.recommended_questions && resData.recommended_questions.length > 0) {
+        console.log("偵測到錯題，自動插播觀念補強題：", resData.recommended_questions);
+        questionQueue.unshift(...resData.recommended_questions);
+      }
+    }
+
+    function nextQuestion() {
+      showNextQuestion();
+    }
+  </script>
+</body>
+</html>
