@@ -7,12 +7,23 @@
   <style>
     body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 15px; line-height: 1.6; }
     .card { border: 1px solid #ccc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    .option-btn { display: block; width: 100%; margin: 8px 0; padding: 10px; text-align: left; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+    .option-btn { display: block; width: 100%; margin: 8px 0; padding: 10px; text-align: left; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 1rem; }
     .option-btn:hover { background: #e0e0e0; }
     .explanation { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-top: 10px; }
     .badge { background: #17a2b8; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em; }
     .hidden { display: none; }
-    .btn-submit { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+    .btn-submit { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+    
+    /* 🖼️ 附圖專用美化樣式 */
+    .quiz-img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 12px auto;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      border: 1px solid #e0e0e0;
+    }
   </style>
 </head>
 <body>
@@ -42,12 +53,19 @@
   </div>
 
   <script>
-    // ⚠️ 請將下方網址替換為你在 Apps Script 部署獲得的網頁應用程式 URL
     const API_URL = "https://script.google.com/macros/s/AKfycbzFNfrVkoJ5JQHYuksHmXNGsg92_FMj3T86mJhd68JnVSoC9dVxGq6AN5dZtZiOHVoCVw/exec"; 
 
     let studentName = "";
     let questionQueue = [];
     let currentQ = null;
+
+    // 💡 輔助函式：將 [附圖: xxx.png] 文字轉換為 <img> 標籤
+    function formatTextWithImages(text) {
+      if (!text) return "";
+      return text.replace(/\[附圖:\s*(.*?)\]/g, function(match, filename) {
+        return `<br><img src="images/${filename.trim()}" alt="題目圖片" class="quiz-img"><br>`;
+      });
+    }
 
     // 啟動與載入題目
     async function startPractice() {
@@ -57,11 +75,14 @@
       document.getElementById("login-card").classList.add("hidden");
       document.getElementById("quiz-card").classList.remove("hidden");
 
-      // 向 Google Apps Script 抓取題目
-      let res = await fetch(API_URL);
-      questionQueue = await res.json();
-      
-      showNextQuestion();
+      try {
+        let res = await fetch(API_URL);
+        questionQueue = await res.json();
+        showNextQuestion();
+      } catch (err) {
+        alert("題目載入失敗，請確認網路連線或更新網頁！");
+        console.error(err);
+      }
     }
 
     // 顯示下一題
@@ -75,7 +96,9 @@
       document.getElementById("result-box").classList.add("hidden");
       document.getElementById("concept-tag").innerText = "概念：" + currentQ.concept;
       document.getElementById("difficulty-tag").innerText = "難度：" + currentQ.difficulty;
-      document.getElementById("question-text").innerText = currentQ.question;
+      
+      // ⚠️ 修改點 1：使用 innerHTML + formatTextWithImages 渲染包含圖片的題目
+      document.getElementById("question-text").innerHTML = formatTextWithImages(currentQ.question);
 
       let optsContainer = document.getElementById("options-container");
       optsContainer.innerHTML = "";
@@ -83,7 +106,9 @@
       for (let key in currentQ.options) {
         let btn = document.createElement("button");
         btn.className = "option-btn";
-        btn.innerText = key + ". " + currentQ.options[key];
+        
+        // ⚠️ 修改點 2：選項也支援圖片渲染，改用 innerHTML
+        btn.innerHTML = key + ". " + formatTextWithImages(currentQ.options[key]);
         btn.onclick = () => submitAnswer(key);
         optsContainer.appendChild(btn);
       }
@@ -101,27 +126,36 @@
       let statusText = isCorrect ? "✅ 答對了！" : `❌ 答錯了！正確答案是 (${currentQ.answer})`;
       document.getElementById("result-status").innerText = statusText;
       document.getElementById("result-status").style.color = isCorrect ? "green" : "red";
-      document.getElementById("explanation-text").innerText = "解析：" + currentQ.explanation;
+      
+      // 解析也可能包含附圖，同樣做轉化
+      document.getElementById("explanation-text").innerHTML = "解析：" + formatTextWithImages(currentQ.explanation);
       document.getElementById("result-box").classList.remove("hidden");
 
-      // 發送結果至後端
-      let response = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify({
-          student_name: studentName,
-          question_id: currentQ.id,
-          concept: currentQ.concept,
-          user_answer: selectedOpt,
-          is_correct: isCorrect
-        })
-      });
+      // ⚠️ 修改點 3：發送結果至後端（加入 text/plain header 預防 CORS）
+      try {
+        let response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify({
+            student_name: studentName,
+            question_id: currentQ.id,
+            concept: currentQ.concept,
+            user_answer: selectedOpt,
+            is_correct: isCorrect
+          })
+        });
 
-      let resData = await response.json();
+        let resData = await response.json();
 
-      // 如果答錯，且系統有推薦同概念題，自動插入到佇列前面（進行強化補題）
-      if (!isCorrect && resData.recommended_questions && resData.recommended_questions.length > 0) {
-        console.log("偵測到錯題，自動插播觀念補強題：", resData.recommended_questions);
-        questionQueue.unshift(...resData.recommended_questions);
+        // 如果答錯，且系統有推薦同概念題，自動插入到佇列前面（進行強化補題）
+        if (!isCorrect && resData.recommended_questions && resData.recommended_questions.length > 0) {
+          console.log("偵測到錯題，自動插播觀念補強題：", resData.recommended_questions);
+          questionQueue.unshift(...resData.recommended_questions);
+        }
+      } catch (err) {
+        console.error("提交答案紀錄時發生錯誤:", err);
       }
     }
 
