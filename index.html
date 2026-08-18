@@ -3,61 +3,65 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>生物自適應線上練習系統</title>
+  <title>生物自適應練習與錯題本系統</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 15px; line-height: 1.6; }
+    body { font-family: Arial, sans-serif; max-width: 650px; margin: 20px auto; padding: 15px; line-height: 1.6; }
     .card { border: 1px solid #ccc; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
     .option-btn { display: block; width: 100%; margin: 8px 0; padding: 10px; text-align: left; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 1rem; }
     .option-btn:hover { background: #e0e0e0; }
     .explanation { background: #fff3cd; color: #856404; padding: 10px; border-radius: 4px; margin-top: 10px; }
     .badge { background: #17a2b8; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em; }
-    .badge-reinforce { background: #dc3545; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em; }
     .hidden { display: none; }
     .btn-submit { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-size: 1rem; }
-    
-    /* 進度資訊 */
-    .progress-bar { font-size: 0.9em; color: #555; margin-bottom: 10px; display: flex; justify-content: space-between; }
-    
-    /* 🖼️ 附圖美化 */
-    .quiz-img {
-      max-width: 100%;
-      height: auto;
-      display: block;
-      margin: 12px auto;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      border: 1px solid #e0e0e0;
-    }
+    .btn-danger { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+    .nav-bar { display: flex; gap: 10px; margin-bottom: 15px; }
+    .nav-btn { flex: 1; padding: 10px; border: 1px solid #17a2b8; background: #fff; color: #17a2b8; border-radius: 4px; cursor: pointer; text-align: center; font-weight: bold; }
+    .nav-btn.active { background: #17a2b8; color: #fff; }
+    .wb-item { border-bottom: 1px solid #eee; padding: 12px 0; }
+    .quiz-img { max-width: 100%; height: auto; display: block; margin: 12px auto; border-radius: 6px; border: 1px solid #e0e0e0; }
   </style>
 </head>
 <body>
 
-  <!-- 步驟 1: 輸入姓名 -->
+  <!-- 登入區 -->
   <div id="login-card" class="card">
     <h2>歡迎使用生物線上練習系統</h2>
-    <p>本次練習共 20 題基礎題（若答錯會自動安排觀念強化題）：</p>
+    <p>請輸入您的姓名以進入個人系統：</p>
     <input type="text" id="student-name" placeholder="例如：張小明" style="width: 80%; padding: 8px;">
-    <button class="btn-submit" onclick="startPractice()">開始練習</button>
+    <button class="btn-submit" onclick="login()">進入系統</button>
   </div>
 
-  <!-- 步驟 2: 答題區域 -->
-  <div id="quiz-card" class="card hidden">
-    <div class="progress-bar">
-      <span>已完成：<strong id="completed-count">0</strong> 題</span>
-      <span>剩餘佇列：<strong id="remaining-count">0</strong> 題</span>
+  <!-- 主選單與內容區 -->
+  <div id="main-card" class="card hidden">
+    <div class="nav-bar">
+      <button id="nav-quiz" class="nav-btn active" onclick="switchTab('quiz')">✍️ 練習 20 題</button>
+      <button id="nav-wb" class="nav-btn" onclick="switchTab('wb')">📖 錯題本回顧</button>
     </div>
-    <div style="margin-bottom: 8px;">
-      <span id="concept-tag" class="badge">概念</span>
-      <span id="difficulty-tag" class="badge" style="background:#6c757d;">難度</span>
-      <span id="reinforce-tag" class="badge-reinforce hidden">觀念強化題</span>
+
+    <!-- 頁籤 1: 答題區 -->
+    <div id="tab-quiz">
+      <div style="font-size: 0.9em; color: #555; margin-bottom: 10px;">
+        目前進度：第 <strong id="current-index">0</strong> / <span id="total-count">20</span> 題
+      </div>
+      <div>
+        <span id="concept-tag" class="badge">概念</span>
+        <span id="difficulty-tag" class="badge" style="background:#6c757d;">難度</span>
+      </div>
+      <h3 id="question-text">題目載入中...</h3>
+      <div id="options-container"></div>
+      
+      <div id="result-box" class="hidden">
+        <p id="result-status"></p>
+        <div id="explanation-text" class="explanation"></div>
+        <button class="btn-submit" style="margin-top:10px;" onclick="nextQuestion()">下一題</button>
+      </div>
     </div>
-    <h3 id="question-text">題目載入中...</h3>
-    <div id="options-container"></div>
-    
-    <div id="result-box" class="hidden">
-      <p id="result-status"></p>
-      <div id="explanation-text" class="explanation"></div>
-      <button class="btn-submit" style="margin-top:10px;" onclick="nextQuestion()">下一題</button>
+
+    <!-- 頁籤 2: 錯題本區 -->
+    <div id="tab-wb" class="hidden">
+      <h3>📖 我的錯題本</h3>
+      <p style="font-size:0.85em; color:#666;">複習答對後，下次練習將不再重複出現；也可手動移出錯題本。</p>
+      <div id="wb-container">載入中...</div>
     </div>
   </div>
 
@@ -65,119 +69,163 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbzFNfrVkoJ5JQHYuksHmXNGsg92_FMj3T86mJhd68JnVSoC9dVxGq6AN5dZtZiOHVoCVw/exec"; 
 
     let studentName = "";
-    let questionQueue = [];
-    let currentQ = null;
-    let completedCount = 0;
+    let quizList = [];
+    let currentIndex = 0;
 
-    // 轉換 [附圖: xxx.png] 為 <img>
-    function formatTextWithImages(text) {
+    function formatImages(text) {
       if (!text) return "";
-      return text.replace(/\[附圖:\s*(.*?)\]/g, function(match, filename) {
-        return `<br><img src="images/${filename.trim()}" alt="題目圖片" class="quiz-img"><br>`;
-      });
+      return text.replace(/\[附圖:\s*(.*?)\]/g, (match, filename) => 
+        `<br><img src="images/${filename.trim()}" alt="題目圖片" class="quiz-img"><br>`
+      );
     }
 
-    // 啟動與載入題目
-    async function startPractice() {
+    async function login() {
       studentName = document.getElementById("student-name").value.trim();
       if (!studentName) { alert("請輸入姓名！"); return; }
 
       document.getElementById("login-card").classList.add("hidden");
-      document.getElementById("quiz-card").classList.remove("hidden");
+      document.getElementById("main-card").classList.remove("hidden");
+
+      loadQuiz();
+    }
+
+    // 載入 20 題練習題
+    async function loadQuiz() {
+      document.getElementById("question-text").innerText = "正在為您生成客製化 20 題（含歷史錯題與觀念強化）...";
+      document.getElementById("options-container").innerHTML = "";
+      document.getElementById("result-box").classList.add("hidden");
 
       try {
-        let res = await fetch(API_URL);
-        questionQueue = await res.json();
-        showNextQuestion();
+        let res = await fetch(`${API_URL}?student_name=${encodeURIComponent(studentName)}`);
+        quizList = await res.json();
+        currentIndex = 0;
+        showQuestion();
       } catch (err) {
-        alert("題目載入失敗，請確認網路連線或更新網頁！");
-        console.error(err);
+        alert("題目載入失敗！");
       }
     }
 
-    // 顯示下一題
-    function showNextQuestion() {
-      if (questionQueue.length === 0) {
-        document.getElementById("quiz-card").innerHTML = `
-          <h2>🎉 恭喜完成所有練習！</h2>
-          <p>您總共答對/完成了 ${completedCount} 道題目觀念練習。</p>
-        `;
+    function showQuestion() {
+      if (currentIndex >= quizList.length) {
+        document.getElementById("tab-quiz").innerHTML = "<h2>🎉 恭喜完成本次 20 題練習！</h2><button class='btn-submit' onclick='location.reload()'>再次練習</button>";
         return;
       }
 
-      currentQ = questionQueue.shift();
-      
-      // 更新進度顯示
-      document.getElementById("completed-count").innerText = completedCount;
-      document.getElementById("remaining-count").innerText = questionQueue.length + 1;
-
+      let q = quizList[currentIndex];
+      document.getElementById("current-index").innerText = currentIndex + 1;
+      document.getElementById("total-count").innerText = quizList.length;
       document.getElementById("result-box").classList.add("hidden");
-      document.getElementById("concept-tag").innerText = "概念：" + currentQ.concept;
-      document.getElementById("difficulty-tag").innerText = "難度：" + currentQ.difficulty;
-      
-      // 題目的圖文渲染
-      document.getElementById("question-text").innerHTML = formatTextWithImages(currentQ.question);
+
+      document.getElementById("concept-tag").innerText = "概念：" + q.concept;
+      document.getElementById("difficulty-tag").innerText = "難度：" + q.difficulty;
+      document.getElementById("question-text").innerHTML = formatImages(q.question);
 
       let optsContainer = document.getElementById("options-container");
       optsContainer.innerHTML = "";
 
-      for (let key in currentQ.options) {
+      for (let key in q.options) {
         let btn = document.createElement("button");
         btn.className = "option-btn";
-        btn.innerHTML = key + ". " + formatTextWithImages(currentQ.options[key]);
+        btn.innerHTML = key + ". " + formatImages(q.options[key]);
         btn.onclick = () => submitAnswer(key);
         optsContainer.appendChild(btn);
       }
     }
 
-    // 學生點擊選項後提交
     async function submitAnswer(selectedOpt) {
       let btns = document.querySelectorAll(".option-btn");
       btns.forEach(b => b.disabled = true);
 
-      let isCorrect = (selectedOpt === currentQ.answer);
-      completedCount++;
-      
-      // 顯示答題結果與解析
-      let statusText = isCorrect ? "✅ 答對了！" : `❌ 答錯了！正確答案是 (${currentQ.answer})`;
-      document.getElementById("result-status").innerText = statusText;
+      let q = quizList[currentIndex];
+      let isCorrect = (selectedOpt === q.answer);
+
+      document.getElementById("result-status").innerText = isCorrect ? "✅ 答對了！(已自動移出錯題本)" : `❌ 答錯了！正確答案是 (${q.answer})`;
       document.getElementById("result-status").style.color = isCorrect ? "green" : "red";
-      document.getElementById("explanation-text").innerHTML = "解析：" + formatTextWithImages(currentQ.explanation);
+      document.getElementById("explanation-text").innerHTML = "解析：" + formatImages(q.explanation);
       document.getElementById("result-box").classList.remove("hidden");
 
-      // 發送結果至後端
-      try {
-        let response = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({
-            student_name: studentName,
-            question_id: currentQ.id,
-            concept: currentQ.concept,
-            user_answer: selectedOpt,
-            is_correct: isCorrect
-          })
-        });
-
-        let resData = await response.json();
-
-        // 💡 如果答錯，將後端回傳的補強題（錯題+同概念2題，最多3題）插播到佇列最前面
-        if (!isCorrect && resData.recommended_questions && resData.recommended_questions.length > 0) {
-          console.log("答錯！插播觀念補強題：", resData.recommended_questions);
-          
-          // 將補強題插入到佇列的最前端 (unshift)
-          questionQueue.unshift(...resData.recommended_questions);
-          
-          // 重新更新剩餘題數
-          document.getElementById("remaining-count").innerText = questionQueue.length;
-        }
-      } catch (err) {
-        console.error("提交答案紀錄時發生錯誤:", err);
-      }
+      // 同步答題結果至後端 (後端會自動更新錯題本)
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          student_name: studentName,
+          question_id: q.id,
+          concept: q.concept,
+          user_answer: selectedOpt,
+          is_correct: isCorrect
+        })
+      });
     }
 
     function nextQuestion() {
-      showNextQuestion();
+      currentIndex++;
+      showQuestion();
+    }
+
+    // 頁籤切換
+    function switchTab(tab) {
+      if (tab === 'quiz') {
+        document.getElementById("tab-quiz").classList.remove("hidden");
+        document.getElementById("tab-wb").classList.add("hidden");
+        document.getElementById("nav-quiz").classList.add("active");
+        document.getElementById("nav-wb").classList.remove("active");
+      } else {
+        document.getElementById("tab-quiz").classList.add("hidden");
+        document.getElementById("tab-wb").classList.remove("hidden");
+        document.getElementById("nav-quiz").classList.remove("active");
+        document.getElementById("nav-wb").classList.active = false;
+        document.getElementById("nav-wb").classList.add("active");
+        loadWrongBook();
+      }
+    }
+
+    // 載入錯題本內容
+    async function loadWrongBook() {
+      let container = document.getElementById("wb-container");
+      container.innerHTML = "載入錯題本中...";
+
+      let res = await fetch(`${API_URL}?student_name=${encodeURIComponent(studentName)}&action=get_wrong_book`);
+      let list = await res.json();
+
+      if (list.length === 0) {
+        container.innerHTML = "<p>🎉 太棒了！目前沒有任何錯題！</p>";
+        return;
+      }
+
+      container.innerHTML = "";
+      list.forEach(q => {
+        let div = document.createElement("div");
+        div.className = "wb-item";
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="badge">概念: ${q.concept}</span>
+            <button class="btn-danger" onclick="removeFromWB('${q.id}')">移出錯題本</button>
+          </div>
+          <p><strong>題目：</strong>${formatImages(q.question)}</p>
+          <p style="color:green;"><strong>正確答案：</strong>(${q.answer}) ${formatImages(q.options[q.answer])}</p>
+          <div class="explanation">解析：${formatImages(q.explanation)}</div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    // 手動從錯題本刪除題目
+    async function removeFromWB(qId) {
+      if (!confirm("確定要將此題從錯題本移出嗎？")) return;
+
+      await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          action: "edit_wrong_book",
+          student_name: studentName,
+          question_id: qId,
+          type: "remove"
+        })
+      });
+
+      loadWrongBook(); // 重新載入錯題本列表
     }
   </script>
 </body>
