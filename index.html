@@ -17,7 +17,10 @@
     .nav-bar { display: flex; gap: 10px; margin-bottom: 15px; }
     .nav-btn { flex: 1; padding: 10px; border: 1px solid #17a2b8; background: #fff; color: #17a2b8; border-radius: 4px; cursor: pointer; text-align: center; font-weight: bold; }
     .nav-btn.active { background: #17a2b8; color: #fff; }
-    .wb-item { border-bottom: 1px solid #eee; padding: 12px 0; }
+    .wb-item { border-bottom: 1px solid #ddd; padding: 15px 0; }
+    .options-box { background: #f8f9fa; padding: 10px 15px; border-radius: 6px; margin: 10px 0; border: 1px solid #e9ecef; }
+    .option-row { margin: 6px 0; }
+    .correct-option { color: #28a745; font-weight: bold; }
     .quiz-img { max-width: 100%; height: auto; display: block; margin: 12px auto; border-radius: 6px; border: 1px solid #e0e0e0; }
   </style>
 </head>
@@ -174,13 +177,12 @@
         document.getElementById("tab-quiz").classList.add("hidden");
         document.getElementById("tab-wb").classList.remove("hidden");
         document.getElementById("nav-quiz").classList.remove("active");
-        document.getElementById("nav-wb").classList.active = false;
         document.getElementById("nav-wb").classList.add("active");
         loadWrongBook();
       }
     }
 
-    // 載入錯題本內容
+    // 💡 載入錯題本內容（呈現完整選項：包含正確與錯誤選項）
     async function loadWrongBook() {
       let container = document.getElementById("wb-container");
       container.innerHTML = "載入錯題本中...";
@@ -197,14 +199,32 @@
       list.forEach(q => {
         let div = document.createElement("div");
         div.className = "wb-item";
+
+        // 動態生成 A, B, C, D 所有選項 HTML
+        let optionsHtml = "";
+        for (let key in q.options) {
+          let isCorrect = (key === q.answer);
+          let rowClass = isCorrect ? "option-row correct-option" : "option-row";
+          let badgeText = isCorrect ? " ✅ (正確答案)" : "";
+
+          optionsHtml += `
+            <div class="${rowClass}">
+              <strong>(${key})</strong> ${formatImages(q.options[key])}${badgeText}
+            </div>
+          `;
+        }
+
         div.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span class="badge">概念: ${q.concept}</span>
             <button class="btn-danger" onclick="removeFromWB('${q.id}')">移出錯題本</button>
           </div>
           <p><strong>題目：</strong>${formatImages(q.question)}</p>
-          <p style="color:green;"><strong>正確答案：</strong>(${q.answer}) ${formatImages(q.options[q.answer])}</p>
-          <div class="explanation">解析：${formatImages(q.explanation)}</div>
+          <div class="options-box">
+            <div style="font-weight:bold; margin-bottom:5px; color:#333;">完整選項：</div>
+            ${optionsHtml}
+          </div>
+          <div class="explanation"><strong>解析：</strong>${formatImages(q.explanation)}</div>
         `;
         container.appendChild(div);
       });
